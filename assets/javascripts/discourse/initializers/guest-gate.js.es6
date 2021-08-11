@@ -9,43 +9,47 @@ export default {
   after: 'inject-objects',
 
   initialize(container) {
-    if(Discourse.SiteSettings.guest_gate_enabled) {
-      if (!Discourse.User.current()) {
-        var pageView = 0;
-        // Tell our AJAX system to track a page transition
-        const router = container.lookup('router:main');
-        router.on('willTransition', viewTrackingRequired);
-        router.on('didTransition', cleanDOM);
+    withPluginApi("0.8.31", api => {
+      let siteSettings = container.lookup("site-settings:main");
 
-        let appEvents = container.lookup('app-events:main');
-        startPageTracking(router, appEvents);
-        var gateShownOnce = false;
+      if (siteSettings.guest_gate_enabled) {
+        if (!api.getCurrentUser()) {
+          var pageView = 0;
+          // Tell our AJAX system to track a page transition
+          const router = container.lookup('router:main');
+          router.on('willTransition', viewTrackingRequired);
+          router.on('didTransition', cleanDOM);
 
-        appEvents.on('page:changed', data => {
-          
-          var urlPrefix = "/t/";
+          let appEvents = container.lookup('app-events:main');
+          startPageTracking(router, appEvents);
+          var gateShownOnce = false;
 
-          var pattern = new RegExp('^' + urlPrefix);
-          var hasPrefix = pattern.test(data.url);
-          if(hasPrefix) {
-            var isBot = false;
-            var re = new RegExp(botPattern, 'i');
-            if (re.test(navigator.userAgent)) {
-              isBot = true;
-            }
-            var maxViews = parseInt(Discourse.SiteSettings.max_guest_topic_views);
-            pageView++;
-            var hitMaxViews = pageView >= maxViews;
-            var showGateBool = hitMaxViews && !isBot && !gateShownOnce;
-            if (showGateBool) {
-              if (Discourse.SiteSettings.gate_show_only_once) {
-                gateShownOnce = true;
+          appEvents.on('page:changed', data => {
+            
+            var urlPrefix = "/t/";
+
+            var pattern = new RegExp('^' + urlPrefix);
+            var hasPrefix = pattern.test(data.url);
+            if(hasPrefix) {
+              var isBot = false;
+              var re = new RegExp(botPattern, 'i');
+              if (re.test(navigator.userAgent)) {
+                isBot = true;
               }
-              pageView = getRandomInt(0, maxViews + 1);
-              showGate('guest-gate');
+              var maxViews = parseInt(Discourse.SiteSettings.max_guest_topic_views);
+              pageView++;
+              var hitMaxViews = pageView >= maxViews;
+              var showGateBool = hitMaxViews && !isBot && !gateShownOnce;
+              if (showGateBool) {
+                if (Discourse.SiteSettings.gate_show_only_once) {
+                  gateShownOnce = true;
+                }
+                pageView = getRandomInt(0, maxViews + 1);
+                showGate('guest-gate');
+              }
             }
-          }
-        });
+          });
+        }
       }
     }
   }
